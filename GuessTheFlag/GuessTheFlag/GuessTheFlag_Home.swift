@@ -9,36 +9,9 @@ import SwiftUI
 import ConfettiSwiftUI
 
 struct GuessTheFlag_Home: View {
-    @State private var correctAnswer = Int.random(in: 0...3)
-    @State private var showingScore = false
-    @State private var scoreTitle = ""
-    @State private var questionCount = 1
-    //@State private var rotatingButtonID: Int? = nil
-    @State private var trigger = 0
-    @State private var correctQuestion = 0
-    @State private var message = ""
-    @State private var selectedAnswer: Int? = nil
+    @StateObject private var viewModel = GuessTheFlagViewModel()
     
-    @State private var Countries = [
-        "Estonia",
-        "France",
-        "Germany",
-        "Ireland",
-        "Italy",
-        "Monaco",
-        "Nigeria",
-        "Poland",
-        "Spain",
-        "UK",
-        "Ukraine",
-        "US",
-        "Egypt"
-    ].shuffled()
-    
-    private let flagColumns: [GridItem] = [
-        GridItem(.flexible()),
-        GridItem(.flexible())
-    ]
+    private let flagColumns: [GridItem] = [GridItem(.flexible()),GridItem(.flexible())]
     
     var body: some View {
         ZStack{
@@ -61,35 +34,21 @@ struct GuessTheFlag_Home: View {
                             .font(.subheadline.weight(.heavy))
                             .foregroundStyle(.secondary)
                         
-                        Text(Countries[correctAnswer])
+                        Text(viewModel.Countries[viewModel.correctAnswer])
                             .font(.largeTitle.weight(.semibold))
                         
                     }.padding()
                     
                     LazyVGrid(columns: flagColumns, spacing: 20) {
-                        ForEach(0..<4) { number in
-                            Button{
-                                //rotatingButtonID = number
-                                flagTapped(number)
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                                        askQuestion()
+                        ForEach(0..<viewModel.numberOfChoices, id: \.self) { index in
+                            FlagButtonView(
+                                imageName: viewModel.Countries[index],
+                                borderColor: viewModel.borderColor(for: index)) {
+                                    viewModel.flagTapped(index)
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                        viewModel.askNextQuestion()
+                                    }
                                 }
-                            } label: {
-                                Image(Countries[number])
-                                    .frame(width: 150, height: 100)
-                                    .clipShape(.capsule)
-                                    .shadow(radius: 10)
-                                    //.scaleEffect(rotatingButtonID == number ? 1.2 : 1.0)
-                                    .overlay(
-                                            Capsule()
-                                                .stroke(
-                                                    borderColor(for: number),
-                                                    lineWidth: selectedAnswer != nil ? 6 : 0
-                                                )
-                                        )
-                                    .animation(.easeOut(duration: 0.3), value: showingScore)
-                            }
-    
                         }
                     }.padding(.vertical)
                 }
@@ -100,61 +59,52 @@ struct GuessTheFlag_Home: View {
                 
                 Spacer()
                 
-                Text("Score: \(correctQuestion)")
+                Text("Score: \(viewModel.score)")
                     .font(.title.bold())
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading)
-                    
+                
                 Spacer()
                 
             }.padding()
             
-            .alert(scoreTitle, isPresented: $showingScore) {
-                Button("Continue") {}
-            }message: {
-                Text(message)
-            }
+                .alert(viewModel.scoreTitle, isPresented: $viewModel.showingScore) {
+                    Button("Continue") {}
+                }message: {
+                    Text(viewModel.message)
+                }
             
-            .confettiCannon(trigger: $trigger, num: 70, openingAngle: Angle(degrees: 0), closingAngle: Angle(degrees: 360), radius: 200)
+                .confettiCannon(
+                    trigger: $viewModel.trigger,
+                    num: viewModel.confettiCount,
+                    openingAngle: Angle(
+                        degrees: 0
+                    ),
+                    closingAngle: Angle(degrees: 360),
+                    radius: 200
+                )
         }
     }
+}
+
+struct FlagButtonView: View {
+    let imageName: String
+    let borderColor: Color
+    let action: () -> Void
     
-    private func flagTapped(_ number: Int) {
-        selectedAnswer = number
-        if number == correctAnswer {
-            trigger += 1
-            correctQuestion += 1
-        }
-    }
-    
-    private func askQuestion() {
-        //rotatingButtonID = nil
-        questionCount += 1
-        selectedAnswer = nil
-        if questionCount <= 5 {
-            Countries.shuffle()
-            correctAnswer = Int.random(in: 0...3)
+    var body: some View {
+        Button(action: action) {
+            Image(imageName)
+                .resizable()
+                .frame(width: 150, height: 100)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(borderColor, lineWidth: borderColor == .clear ? 0 : 6)
+                )
+                .shadow(radius: 10)
             
-        }else {
-            scoreTitle = "🎉 Congratulations!"
-            message = "You Are Finish Your Guess and Your Score is \(correctQuestion)"
-            showingScore = true
-            trigger = 0
-            correctQuestion = 0
-            questionCount = 1
-        }
-    }
-    
-    private func borderColor(for number: Int) -> Color {
-        if selectedAnswer == nil {
-            return .clear
-        } else if number == correctAnswer {
-            return .green
-        } else if number == selectedAnswer {
-            return .red
-        } else {
-            return .clear
         }
     }
 }
